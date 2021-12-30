@@ -1,0 +1,65 @@
+language: rust
+rust:
+  - stable
+#  - beta
+script:
+  - cargo build --release
+  - mkdir -p target/executable
+  - TARGET_ROOT_NAME="log4shell-scanner-rs-$TRAVIS_TAG-$TRAVIS_CPU_ARCH-$TRAVIS_OS_NAME"
+  - EXTENSION=""
+  - |
+    if [ $TRAVIS_OS_NAME == "windows" ]; then
+      EXTENSION=".exe";
+    fi
+  - TARGET_NAME="$TARGET_ROOT_NAME$EXTENSION"
+  - echo $TARGET_NAME
+  - cp "target/release/log4shell-scanner-rs$EXTENSION" "target/executable/$TARGET_NAME"
+  - |
+    if ! [ $TRAVIS_OS_NAME == "windows" ]; then
+      chmod +x "target/executable/$TARGET_NAME"
+    fi
+  - cd target/executable/
+  - md5sum "$TARGET_NAME" > "$TARGET_NAME".md5
+  - cd ../../
+  - ls -la target/executable
+jobs:
+  include:
+   - os: linux
+     arch: amd64
+#   - os: linux
+#     arch: arm64
+   - os: osx
+     arch: amd64
+   - os: windows
+     arch: amd64
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+deploy:
+  - provider: releases
+    on:
+      condition: "$TRAVIS_RUST_VERSION = stable"
+      all_branches: false
+      tags: true
+      branch: main
+    api_key:
+      secure: "ZbBZRNH6Mi/LEq6la7wyEzvMYtfB/eP79mZoFLcWMoWOWFp4XHkfLeJhbXkA47ScgovQKdnzB48i+sSNyvZ+IvVzJvP4SNfuXyzb95RyxrhLZWcLv2z3ImrFzOnDVj/A1pyVuz0+Y8WYEVMYq81mf0Q1K5iLs4RZmyFIkrhNOdvSOPQ3m1BEXOo9m6XLnhvAv6F8KXjNsg1FAgRipDkIdxgF7jN6NZDTXZIHdcnCrjL4YGN5FZV5OquKMeN2EJy11HvSaqgyrcQt6CGe+HIKmrhIMYEF/LkQUdX5wyt/v0X9lyQvFo3lpmxJANPTTQHttgsp0O3gBz5B4J+1XMxseGeDJjrHp5tYU79aFR4UyuLOglg1BD0YCoLiu7A1UfEXKKsU7MkPVQ2v9y4NrgpsQO5GwklrnFqjZ/rrIorK1C/AlIR/7K+72fi/eu+9Yf2yTWEp0xbZdGXABXetnA/iINmZUFOvoeyf1IvCTmLOz0LVeeDaMe6VsOoMVGFs5jaON2esBR7ScoMWYetKwy/PDBIsmFk/h5zhH778+kYirCIABqX0tS1BvdknVXOS9KqFFoBiYoG6bnvHRgCf0ytWjTGYmz56y9v0wE/F/wZIeV3E1qDAkjCyh5Z9HnhuSqSujAmHOGtsXonSKo70TzP8ZG3+htpDkVjDVAKe6wwPKEk="
+    file_glob: true
+    file:
+      - target/executable/*
+    skip_cleanup: true
+    draft: false
+    overwrite: true
+  - provider: releases
+    on:
+      condition: "$TRAVIS_RUST_VERSION = stable"
+      all_branches: true
+      tags: false
+    api_key:
+      secure: "ZbBZRNH6Mi/LEq6la7wyEzvMYtfB/eP79mZoFLcWMoWOWFp4XHkfLeJhbXkA47ScgovQKdnzB48i+sSNyvZ+IvVzJvP4SNfuXyzb95RyxrhLZWcLv2z3ImrFzOnDVj/A1pyVuz0+Y8WYEVMYq81mf0Q1K5iLs4RZmyFIkrhNOdvSOPQ3m1BEXOo9m6XLnhvAv6F8KXjNsg1FAgRipDkIdxgF7jN6NZDTXZIHdcnCrjL4YGN5FZV5OquKMeN2EJy11HvSaqgyrcQt6CGe+HIKmrhIMYEF/LkQUdX5wyt/v0X9lyQvFo3lpmxJANPTTQHttgsp0O3gBz5B4J+1XMxseGeDJjrHp5tYU79aFR4UyuLOglg1BD0YCoLiu7A1UfEXKKsU7MkPVQ2v9y4NrgpsQO5GwklrnFqjZ/rrIorK1C/AlIR/7K+72fi/eu+9Yf2yTWEp0xbZdGXABXetnA/iINmZUFOvoeyf1IvCTmLOz0LVeeDaMe6VsOoMVGFs5jaON2esBR7ScoMWYetKwy/PDBIsmFk/h5zhH778+kYirCIABqX0tS1BvdknVXOS9KqFFoBiYoG6bnvHRgCf0ytWjTGYmz56y9v0wE/F/wZIeV3E1qDAkjCyh5Z9HnhuSqSujAmHOGtsXonSKo70TzP8ZG3+htpDkVjDVAKe6wwPKEk="
+    file_glob: true
+    file:
+      - target/executable/*
+    skip_cleanup: true
+    draft: true
+    overwrite: true

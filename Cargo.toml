@@ -1,0 +1,21 @@
+[package]
+name = "log4shell-scanner-rs"
+version = "0.1.0"
+authors = ["Yann Nicolas"]
+edition = "2021"
+description = "Utility to scan files on the FIleSystem and detect potential vulnerabilities to log4shell (CVE-2021-44228)."
+readme = "README.md"
+homepage = "https://github.com/yannart/log4shell-scanner-rs/"
+repository = "https://github.com/yannart/log4shell-scanner-rs/"
+license = "MIT"
+keywords = ["cli", "log4j", "log4shell", "cve", "vulnerability"]
+categories = ["Command line utilities", "Cybersecurity"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+structopt = "0.3.25"
+walkdir = "2.3.2"
+zip = "0.5.13"
+memchr = "2.4.1"
+log = "0.4.0"
+env_logger = "0.8.4"
