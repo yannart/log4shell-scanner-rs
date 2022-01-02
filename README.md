@@ -95,6 +95,7 @@ Output logs severity:
 2021-12-25T19:25:02Z    ERROR   /home/me/myvulnerablejar.Jar contains log4j-core-2.14.1.jar seems vulnerable to critical CVE
 2021-12-25T19:25:02Z    WARN    /home/me/JndiLookup.class is 'JndiLookup.class' and may be vulnerable
 2021-12-25T19:25:02Z    INFO    Scanned 284 directories and 3165 files
+2021-12-25T19:25:02Z    INFO    Found 10 vulnerable files
 2021-12-25T19:25:02Z    INFO    Completed in 407 milliseconds
 ```
 
@@ -124,15 +125,15 @@ cargo run --release -- -z /
 ```
 
 ## Testing
-log4shell-scanner-rs has been tested against different type of Java archives (eg. war, zip, shaded jars, uber jars, spring-boot executable jars, jars inside jars, exploded jars) and in particular the set of samples in [log4j-samples](https://github.com/mergebase/log4j-samples).
+log4shell-scanner-rs has been tested against different type of Java archives (eg. war, zip, shaded jars, uber jars, spring-boot executable jars, jars inside jars, exploded jars).
+Automated tests included and run against files under `resources/test`.
 
 ## Known limitations and future improvements
-* If the file `JndiLookup.class` is found outside an archive, vulnerability fix signatures are not identified and a WARN message is printed.
+* If the file `JndiLookup.class` is found outside an archive, vulnerability fix signatures are not identified but it is considered vulnerable and a WARN message is printed.
 * Archive with different extensions than the predefined list are ignored.
 * A single parent folder can be provided. No exclusion patterns are possible.
 * Not able to fix the archive potentially vulnerable.
-* More test automation against sample of vulnerable files to be done.
-* Code improvements to be done for testing, error handling and generalize the identification of vulnerability fix signatures.
+* Code style improvements to be done and generalize the identification of vulnerability fix signatures.
 
 ## Copyright and license
 Released under the [MIT license](LICENSE).

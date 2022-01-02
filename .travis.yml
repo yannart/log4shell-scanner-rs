@@ -4,6 +4,7 @@ rust:
 #  - beta
 script:
   - cargo build --release
+  - cargo test --release
   - mkdir -p target/executable
   - TARGET_ROOT_NAME="log4shell-scanner-rs-$TRAVIS_TAG-$TRAVIS_CPU_ARCH-$TRAVIS_OS_NAME"
   - EXTENSION=""
