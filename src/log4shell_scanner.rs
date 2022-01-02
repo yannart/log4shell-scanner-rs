@@ -24,6 +24,18 @@ const JDBC_PATTERN_CLASS_FILE: &str = "DataSourceConnectionSource.class";
 /// Default extensions of files to be scanned
 static ARCHIVE_EXTENSIONS: &'static [&str] = &["jar", "war", "ear", "aar"];
 
+/// Severity None
+pub const SEVERITY_NONE: u8 = 0;
+
+/// Severity Info
+pub const SEVERITY_INFO: u8 = 1;
+
+/// Severity Warn
+pub const SEVERITY_WARN: u8 = 2;
+
+/// Severity Error
+pub const SEVERITY_ERROR: u8 = 3;
+
 /// Signature for the fix of Log4j 2.12.2 (<https://github.com/apache/logging-log4j2/commit/70edc233343815d5efa043b54294a6fb065aa1c5#diff-4fde33b59714d0691a648fb2752ea1892502a815bdb40e83d3d6873abd163cdeR37>)
 static SIGN_CVE202145046_FIX_2_12_2: &'static [&str] =
     &["JNDI is not supported", "CVE-2021-45046 (Log4j 2.12.2)"];
@@ -47,6 +59,28 @@ static SIGN_CVE202144832_FIX: &'static [&str] = &[
     "CVE-2021-44832 (Log4j 2.3.2, 2.12.4 or 2.17.1)",
 ];
 
+/// Contains the result of the scan of a file.
+pub struct ArchiveScanResult {
+    // Flag to indicate if the archive still vulnerable despite identified fix
+    pub vulnerable: bool,
+
+    // Severity of the risk, if any
+    pub severity: u8,
+
+    // Flag to indicate if the jndi class been identified
+    pub has_jndi_class: bool,
+}
+
+impl ArchiveScanResult {
+    fn new() -> ArchiveScanResult {
+        ArchiveScanResult {
+            vulnerable: false,
+            severity: SEVERITY_NONE,
+            has_jndi_class: false,
+        }
+    }
+}
+
 /// Finds if the provided Vector of bytes contains the sequence of bytes of the provided string
 fn find_signature_in_bytes(bytes: &Vec<u8>, signature: &str) -> bool {
     let finder = memmem::Finder::new(signature);
@@ -66,8 +100,24 @@ fn read_file_to_buffer(file: &mut ZipFile, buffer: &mut Vec<u8>) -> io::Result<u
     file.read_to_end(buffer)
 }
 
+/// Updates cumulated scan result after individual result
+fn update_cumulated_result(
+    cumulated_result: &mut ArchiveScanResult,
+    subresult: &ArchiveScanResult,
+) {
+    cumulated_result.vulnerable = cumulated_result.vulnerable || subresult.vulnerable;
+    if cumulated_result.severity < subresult.severity {
+        cumulated_result.severity = subresult.severity;
+    }
+    cumulated_result.has_jndi_class = cumulated_result.has_jndi_class || subresult.has_jndi_class;
+}
+
 /// Processes an archive to find vulnerabilities
-fn process_archive<R: Read + Seek>(read: R, paths: &Vec<&str>, args: &Cli) -> io::Result<()> {
+fn process_archive<R: Read + Seek>(
+    read: R,
+    paths: &Vec<&str>,
+    args: &Cli,
+) -> Result<ArchiveScanResult, std::io::Error> {
     trace!("Scanning archive {}", paths.join(" contains "));
 
     let reader = BufReader::new(read);
@@ -75,16 +125,19 @@ fn process_archive<R: Read + Seek>(read: R, paths: &Vec<&str>, args: &Cli) -> io
     // Zip archive
     let mut archive = zip::ZipArchive::new(reader)?;
 
-    // The scanned version has fixed some vulnerability
+    // Current archive scan result
+    let mut result = ArchiveScanResult::new();
+
+    // Cumulated result including result from nested archives
+    let mut cumulated_result = ArchiveScanResult::new();
+
+    // Consider the file vulnerable until proven otherwise.
+    result.vulnerable = true;
+
+    // Current archive scan has some fix
     let mut fixed = false;
 
-    // Flag to indicate if the archive still vulnerable
-    let mut vulnerable = true;
-
-    // Flag to indicate if the jndi class been identified
-    let mut has_jndi_class = false;
-
-    // Version that has the identified fix
+    // Version of current archive scan has some fix
     let mut fix_version = "";
 
     // Buffer to read files content
@@ -107,7 +160,7 @@ fn process_archive<R: Read + Seek>(read: R, paths: &Vec<&str>, args: &Cli) -> io
 
             let file_name = outpath.file_name().unwrap_or(OsStr::new(""));
             if file_name == JNDI_LOOKUP_CLASS_FILE {
-                has_jndi_class = true;
+                result.has_jndi_class = true;
 
                 trace!(
                     "Found \"{}\" in \"{}\" ({} bytes)",
@@ -118,7 +171,7 @@ fn process_archive<R: Read + Seek>(read: R, paths: &Vec<&str>, args: &Cli) -> io
 
                 read_file_to_buffer(&mut file, &mut buffer)?; // Load the file on the buffer
                 if find_signature_in_bytes(&mut buffer, SIGN_CVE202145105_FIX[0]) {
-                    if !fixed || fix_version != SIGN_CVE202144832_FIX[1]{
+                    if !fixed || fix_version != SIGN_CVE202144832_FIX[1] {
                         fix_version = SIGN_CVE202145105_FIX[1];
                     }
                     fixed = true;
@@ -141,7 +194,7 @@ fn process_archive<R: Read + Seek>(read: R, paths: &Vec<&str>, args: &Cli) -> io
                 read_file_to_buffer(&mut file, &mut buffer)?; // Load the file on the buffer
                 if find_signature_in_bytes(&mut buffer, SIGN_CVE202144832_FIX[0]) {
                     fixed = true;
-                    vulnerable = false;
+                    result.vulnerable = false;
                     fix_version = SIGN_CVE202144832_FIX[1];
                     trace!("Found {} signature", SIGN_CVE202144832_FIX[1]);
                 }
@@ -158,6 +211,7 @@ fn process_archive<R: Read + Seek>(read: R, paths: &Vec<&str>, args: &Cli) -> io
                     None => (),
                 }
 
+                // Scan recursively and return the
                 if is_archive_file {
                     trace!("Contains an archive {}", outpath.display());
 
@@ -171,43 +225,64 @@ fn process_archive<R: Read + Seek>(read: R, paths: &Vec<&str>, args: &Cli) -> io
                     file.read_to_end(&mut buffer)?;
                     let archive_data = Cursor::new(&buffer);
 
-                    process_archive(archive_data, &new_paths, &args).ok();
+                    let subresult = process_archive(archive_data, &new_paths, &args);
+
+                    match subresult {
+                        Ok(r) => update_cumulated_result(&mut cumulated_result, &r),
+                        _ => (),
+                    }
                 }
             }
         }
     }
 
-    if has_jndi_class && fixed {
-        if vulnerable {
+    if result.has_jndi_class && fixed {
+        if result.vulnerable {
+            result.severity = SEVERITY_WARN;
             warn!(
                 "{} seems to be fixed for {} but vulnerable to other CVE",
                 paths.join(" contains "),
                 fix_version
             )
         } else {
+            result.severity = SEVERITY_INFO;
             info!(
                 "{} seems to be fixed for {} and not vulnerable",
                 paths.join(" contains "),
                 fix_version
             )
         }
-    } else if has_jndi_class {
+    } else if result.has_jndi_class {
+        result.severity = SEVERITY_ERROR;
         error!(
             "{} seems vulnerable to critical CVE",
             paths.join(" contains ")
         );
+    } else {
+        result.severity = SEVERITY_NONE;
+        result.vulnerable = false; // Not vulnerable
     }
 
-    Ok(())
+    update_cumulated_result(&mut cumulated_result, &result);
+
+    Ok(cumulated_result)
 }
 
 /// Processes a file from the filesystem to find vulnerabilities
-fn process_file(path: &Path, args: &Cli) -> io::Result<()> {
+fn process_file(path: &Path, args: &Cli) -> Result<ArchiveScanResult, std::io::Error> {
     if path.file_name().unwrap_or(OsStr::new("")) == JNDI_LOOKUP_CLASS_FILE {
+        // If Jndi class is found outside an archive, consider vulnerable with warn severity
+        let mut result = ArchiveScanResult::new();
+        result.has_jndi_class = true;
+        result.severity = SEVERITY_WARN;
+        result.vulnerable = true;
+
         warn!(
             "{} is 'JndiLookup.class' and may be vulnerable",
             path.display()
         );
+
+        return Ok(result);
     }
 
     match path.extension() {
@@ -221,9 +296,9 @@ fn process_file(path: &Path, args: &Cli) -> io::Result<()> {
                 return process_archive(&file, &paths, &args);
             }
         }
-        None => return Ok(()),
+        None => return Ok(ArchiveScanResult::new()),
     }
-    Ok(())
+    Ok(ArchiveScanResult::new())
 }
 
 /// Identifies if the extension provided belongs to an archive to be analyzed
@@ -243,10 +318,10 @@ fn is_archive(extension: &OsStr, include_zip: bool) -> bool {
 }
 
 /// Runs the scan
-pub fn scan(args: &Cli) -> io::Result<()> {
+pub fn scan(args: &Cli) -> Result<u64, std::io::Error> {
     let mut count_dirs: u64 = 0;
     let mut count_files: u64 = 0;
-    //let mut count_vulnerable = 0;
+    let mut count_vulnerable: u64 = 0; // Count number of vulnerable files
 
     // Scan all the matching files under the parent directory
     for e in WalkDir::new(&args.path)
@@ -258,9 +333,15 @@ pub fn scan(args: &Cli) -> io::Result<()> {
             count_files += 1;
             trace!("Scanning file \"{}\"", e.path().display());
             match process_file(e.path(), &args) {
-                Ok(()) => (),
+                Ok(result) => {
+                    if result.vulnerable {
+                        count_vulnerable += 1;
+                    }
+                    ()
+                }
                 Err(error) => {
-                    info!("{} can´t be read. Error:{:?}", e.path().display(), error)
+                    info!("{} can´t be read. Error:{:?}", e.path().display(), error);
+                    ()
                 }
             };
         } else {
@@ -274,5 +355,288 @@ pub fn scan(args: &Cli) -> io::Result<()> {
         count_dirs, count_files
     );
 
-    Ok(())
+    info!("Found {} vulnerable files", count_vulnerable);
+
+    Ok(count_vulnerable)
+}
+
+/// Test scans
+#[cfg(test)]
+mod scan_tests {
+    use crate::log4shell_scanner::{
+        process_file, scan, SEVERITY_ERROR, SEVERITY_INFO, SEVERITY_NONE, SEVERITY_WARN,
+    };
+    use std::path::PathBuf;
+
+    /// Tests the scan of an archive against expected output
+    fn test_archive(
+        path: &str,
+        _expected_severity: u8,
+        _expected_has_jndi_class: bool,
+        _expected_vulnerable: bool,
+    ) {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push(path);
+
+        let path = d.as_path();
+
+        let args = crate::cli::Cli {
+            path: d.clone(),
+            scan_zip: true,
+            trace: false,
+            silent: false,
+            follow_links: true,
+        };
+
+        let result = process_file(&path, &args);
+
+        match result {
+            Ok(r) => {
+                assert_eq!(r.has_jndi_class, _expected_has_jndi_class);
+                assert_eq!(r.vulnerable, _expected_vulnerable);
+                assert_eq!(r.severity, _expected_severity);
+            }
+            _ => (), // Ignore errors
+        }
+    }
+
+    /// Tests the scan of an archive against expected output. Include zip files.
+    fn test_scan(path: &str, _expected_vulnerabilities: u64) {
+        test_scan_zip(path, _expected_vulnerabilities, true)
+    }
+
+    /// Tests the scan of an archive against expected output.
+    fn test_scan_zip(path: &str, _expected_vulnerabilities: u64, scan_zip: bool) {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push(path);
+
+        let args = crate::cli::Cli {
+            path: d.clone(),
+            scan_zip: scan_zip,
+            trace: false,
+            silent: false,
+            follow_links: true,
+        };
+
+        let result = scan(&args);
+
+        match result {
+            Ok(num) => {
+                assert_eq!(num, _expected_vulnerabilities);
+            }
+            _ => (), // Ignore errors
+        }
+    }
+
+    /// Test log4j-core-2.3 and earlier
+    #[test]
+    fn process_file_log4j_core_2_3_and_older() {
+        test_archive(
+            "resources/test/log4j-core-2.2.jar",
+            SEVERITY_ERROR,
+            true,
+            true,
+        );
+        test_archive(
+            "resources/test/log4j-core-2.1.jar",
+            SEVERITY_ERROR,
+            true,
+            true,
+        );
+        test_archive(
+            "resources/test/log4j-core-2.0.jar",
+            SEVERITY_ERROR,
+            true,
+            true,
+        );
+        test_archive(
+            "resources/test/log4j-core-2.3.jar",
+            SEVERITY_ERROR,
+            true,
+            true,
+        );
+    }
+
+    /// Test log4j-core-2.15 and earlier excluding fixed 2.12.x
+    #[test]
+    fn process_file_log4j_core_2_15_and_older() {
+        test_archive(
+            "resources/test/log4j-core-2.14.1.jar",
+            SEVERITY_ERROR,
+            true,
+            true,
+        );
+        test_archive(
+            "resources/test/log4j-core-2.15.0.jar",
+            SEVERITY_ERROR,
+            true,
+            true,
+        );
+        test_archive(
+            "resources/test/log4j-core-2.12.1.jar",
+            SEVERITY_ERROR,
+            true,
+            true,
+        );
+    }
+
+    /// Test log4j-core-2.16.0, 2.12.2 fixing CVE202145046
+    #[test]
+    fn process_file_log4j_core_cve202145046_fix() {
+        test_archive(
+            "resources/test/log4j-core-2.16.0.jar",
+            SEVERITY_WARN,
+            true,
+            true,
+        );
+        test_archive(
+            "resources/test/log4j-core-2.12.2.jar",
+            SEVERITY_WARN,
+            true,
+            true,
+        );
+    }
+
+    /// Test log4j-core-2.17.0, 2.12.3, 2.3.1 fixing CVE202145105
+    #[test]
+    fn process_file_log4j_core_cve202145105_fix() {
+        test_archive(
+            "resources/test/log4j-core-2.17.0.jar",
+            SEVERITY_WARN,
+            true,
+            true,
+        );
+        test_archive(
+            "resources/test/log4j-core-2.12.3.jar",
+            SEVERITY_WARN,
+            true,
+            true,
+        );
+        test_archive(
+            "resources/test/log4j-core-2.3.1.jar",
+            SEVERITY_WARN,
+            true,
+            true,
+        );
+    }
+
+    /// Test log4j-core-2.17.1, 2.12.4, 2.3.2 fixing CVE202144832
+    /// Only versions with no vulnerabilities.
+    #[test]
+    fn process_file_log4j_core_cve202144832_fix() {
+        test_archive(
+            "resources/test/log4j-core-2.17.1.jar",
+            SEVERITY_INFO,
+            true,
+            false,
+        );
+        test_archive(
+            "resources/test/log4j-core-2.12.4.jar",
+            SEVERITY_INFO,
+            true,
+            false,
+        );
+        test_archive(
+            "resources/test/log4j-core-2.3.2.jar",
+            SEVERITY_INFO,
+            true,
+            false,
+        );
+    }
+
+    /// Not archives
+    #[test]
+    fn process_file_not_archive() {
+        test_archive(
+            "resources/test/fake/fake-archive.jar",
+            SEVERITY_NONE,
+            false,
+            false,
+        );
+        test_archive(
+            "resources/test/fake/simplefile.txt",
+            SEVERITY_NONE,
+            false,
+            false,
+        );
+    }
+
+    /// Nested
+    #[test]
+    fn process_file_nested_jar() {
+        test_archive(
+            "resources/test/myvulnerablejar.Jar",
+            SEVERITY_ERROR,
+            true,
+            true,
+        );
+    }
+
+    /// Nested
+    #[test]
+    fn process_file_nested_zip() {
+        test_archive(
+            "resources/test/myvulnerablejar.ZIP",
+            SEVERITY_ERROR,
+            true,
+            true,
+        );
+    }
+
+    /// Uber jar
+    #[test]
+    fn process_file_uber_jar() {
+        test_archive(
+            "resources/test/uberjar/infinispan-embedded-query-8.2.12.Final.jar",
+            SEVERITY_ERROR,
+            true,
+            true,
+        );
+    }
+
+    /// Exploded class
+    #[test]
+    fn process_exploded_file() {
+        test_archive( // Vulnerable
+            "resources/test/resources/test/exploded_extract/log4j-core-2.14.1/org/apache/logging/log4j/core/lookup/JndiLookup.class",
+            SEVERITY_WARN,
+            true,
+            true,
+        );
+        test_archive( // Not vulnerable
+            "resources/test/resources/test/exploded_extract/log4j-core-2.14.1/org/apache/logging/log4j/core/lookup/Log4jLookup.class",
+            SEVERITY_NONE,
+            false,
+            false,
+        );
+    }
+
+    /// Scan specific file
+    #[test]
+    fn scan_file() {
+        test_scan("resources/test/log4j-core-2.14.1.jar", 1);
+    }
+
+    /// Test zip flag
+    #[test]
+    fn scan_zip() {
+        // If flag is on, zip is scanned
+        test_scan_zip("resources/test/myvulnerablejar.ZIP", 1, true);
+
+        // If flag is off, zip is not scanned
+        test_scan_zip("resources/test/myvulnerablejar.ZIP", 0, false);
+    }
+
+    /// Scan specific folder
+    #[test]
+    fn scan_folder() {
+        test_scan("resources/test/uberjar", 1);
+        test_scan("resources/test/fake", 0);
+    }
+
+    /// Scan folder with exploded jar
+    #[test]
+    fn scan_exploded() {
+        test_scan("resources/test/exploded_extract/log4j-core-2.14.1", 1);
+    }
 }
