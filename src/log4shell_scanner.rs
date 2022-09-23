@@ -198,13 +198,10 @@ fn process_archive<R: Read + Seek>(
                 // Recursively scan if the file is an archive
                 let mut is_archive_file = false;
 
-                match outpath.extension() {
-                    Some(extension) => {
-                        if is_archive(extension, args.scan_zip) {
-                            is_archive_file = true;
-                        }
+                if let Some(extension) = outpath.extension() {
+                    if is_archive(extension, args.scan_zip) {
+                        is_archive_file = true;
                     }
-                    None => (),
                 }
 
                 // Scan recursively and return the
