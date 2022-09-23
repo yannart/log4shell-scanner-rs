@@ -22,7 +22,7 @@ const MESSAGE_PATTERN_CLASS_FILE: &str = "MessagePatternConverter.class";
 const JDBC_PATTERN_CLASS_FILE: &str = "DataSourceConnectionSource.class";
 
 /// Default extensions of files to be scanned
-static ARCHIVE_EXTENSIONS: &'static [&str] = &["jar", "war", "ear", "aar"];
+static ARCHIVE_EXTENSIONS: &[&str] = &["jar", "war", "ear", "aar"];
 
 /// Severity None
 pub const SEVERITY_NONE: u8 = 0;
@@ -37,24 +37,24 @@ pub const SEVERITY_WARN: u8 = 2;
 pub const SEVERITY_ERROR: u8 = 3;
 
 /// Signature for the fix of Log4j 2.12.2 (<https://github.com/apache/logging-log4j2/commit/70edc233343815d5efa043b54294a6fb065aa1c5#diff-4fde33b59714d0691a648fb2752ea1892502a815bdb40e83d3d6873abd163cdeR37>)
-static SIGN_CVE202145046_FIX_2_12_2: &'static [&str] =
+static SIGN_CVE202145046_FIX_2_12_2: &[&str] =
     &["JNDI is not supported", "CVE-2021-45046 (Log4j 2.12.2)"];
 
 /// Signature for the fix of Log4j 2.12.3(Java 7) & 2.17.0 (Java 8)(<https://github.com/apache/logging-log4j2/commit/4a4b7530b1848e630a65d79e9c7dc388a5a7785b#diff-4fde33b59714d0691a648fb2752ea1892502a815bdb40e83d3d6873abd163cdeR48>)
-static SIGN_CVE202145105_FIX: &'static [&str] = &[
+static SIGN_CVE202145105_FIX: &[&str] = &[
     "JNDI must be enabled by setting log4j2.enableJndiLookup=true",
     "CVE-2021-45105 (Log4j 2.3.1, 2.12.3 or 2.17.0)",
 ];
 
 /// Signature for the fix of Log4j 2.16 (<https://github.com/apache/logging-log4j2/commit/27972043b76c9645476f561c5adc483dec6d3f5d#diff-22ae074d2f9606392a3e3710b34967731a6ad3bc4012b42e0d362c9f87e0d65bR97>)
-static SIGN_CVE202145046_FIX_V2_16: &'static [&str] = &[
+static SIGN_CVE202145046_FIX_V2_16: &[&str] = &[
     "Message Lookups are no longer supported",
     "CVE-2021-45046 (Log4j 2.16)",
 ];
 
 /// Signature for the fix of CVE-2021-44832 in in Log4j 2.17.1 (Java 8), 2.12.4 (Java 7) and 2.3.2 (Java 6)
 /// (<https://github.com/apache/logging-log4j2/compare/rel/2.17.0...rel/2.17.1#diff-7a4ee8038e15df37e26aec121d76968a09f90a9dfaee21baf2e8acb398b04c75R69>)
-static SIGN_CVE202144832_FIX: &'static [&str] = &[
+static SIGN_CVE202144832_FIX: &[&str] = &[
     "JNDI must be enabled by setting log4j2.enableJndiJdbc=true",
     "CVE-2021-44832 (Log4j 2.3.2, 2.12.4 or 2.17.1)",
 ];
@@ -82,14 +82,10 @@ impl ArchiveScanResult {
 }
 
 /// Finds if the provided Vector of bytes contains the sequence of bytes of the provided string
-fn find_signature_in_bytes(bytes: &Vec<u8>, signature: &str) -> bool {
+fn find_signature_in_bytes(bytes: &[u8], signature: &str) -> bool {
     let finder = memmem::Finder::new(signature);
 
-    if finder.find(bytes) != None {
-        return true;
-    } else {
-        return false;
-    }
+    finder.find(bytes) != None
 }
 
 /// Reads the file on the provided buffer
@@ -115,7 +111,7 @@ fn update_cumulated_result(
 /// Processes an archive to find vulnerabilities
 fn process_archive<R: Read + Seek>(
     read: R,
-    paths: &Vec<&str>,
+    paths: &[&str],
     args: &Cli,
 ) -> Result<ArchiveScanResult, std::io::Error> {
     trace!("Scanning archive {}", paths.join(" contains "));
@@ -158,7 +154,7 @@ fn process_archive<R: Read + Seek>(
         if file.is_file() {
             // Element is file
 
-            let file_name = outpath.file_name().unwrap_or(OsStr::new(""));
+            let file_name = outpath.file_name().unwrap_or_else(|| OsStr::new(""));
             if file_name == JNDI_LOOKUP_CLASS_FILE {
                 result.has_jndi_class = true;
 
@@ -170,13 +166,13 @@ fn process_archive<R: Read + Seek>(
                 );
 
                 read_file_to_buffer(&mut file, &mut buffer)?; // Load the file on the buffer
-                if find_signature_in_bytes(&mut buffer, SIGN_CVE202145105_FIX[0]) {
+                if find_signature_in_bytes(&buffer, SIGN_CVE202145105_FIX[0]) {
                     if !fixed || fix_version != SIGN_CVE202144832_FIX[1] {
                         fix_version = SIGN_CVE202145105_FIX[1];
                     }
                     fixed = true;
                     trace!("Found {} signature", SIGN_CVE202145105_FIX[1]);
-                } else if find_signature_in_bytes(&mut buffer, SIGN_CVE202145046_FIX_2_12_2[0]) {
+                } else if find_signature_in_bytes(&buffer, SIGN_CVE202145046_FIX_2_12_2[0]) {
                     fixed = true;
                     fix_version = SIGN_CVE202145046_FIX_2_12_2[1];
                     trace!("Found {} signature", SIGN_CVE202145046_FIX_2_12_2[1]);
@@ -184,7 +180,7 @@ fn process_archive<R: Read + Seek>(
             } else if !fixed && file_name == MESSAGE_PATTERN_CLASS_FILE {
                 // If not fixed look in other file´s signatures
                 read_file_to_buffer(&mut file, &mut buffer)?; // Load the file on the buffer
-                if find_signature_in_bytes(&mut buffer, SIGN_CVE202145046_FIX_V2_16[0]) {
+                if find_signature_in_bytes(&buffer, SIGN_CVE202145046_FIX_V2_16[0]) {
                     fixed = true;
                     fix_version = SIGN_CVE202145046_FIX_V2_16[1];
                     trace!("Found {} signature", SIGN_CVE202145046_FIX_V2_16[1]);
@@ -192,7 +188,7 @@ fn process_archive<R: Read + Seek>(
             } else if file_name == JDBC_PATTERN_CLASS_FILE {
                 // If not fixed look in other file´s signatures
                 read_file_to_buffer(&mut file, &mut buffer)?; // Load the file on the buffer
-                if find_signature_in_bytes(&mut buffer, SIGN_CVE202144832_FIX[0]) {
+                if find_signature_in_bytes(&buffer, SIGN_CVE202144832_FIX[0]) {
                     fixed = true;
                     result.vulnerable = false;
                     fix_version = SIGN_CVE202144832_FIX[1];
@@ -215,7 +211,7 @@ fn process_archive<R: Read + Seek>(
                 if is_archive_file {
                     trace!("Contains an archive {}", outpath.display());
 
-                    let mut new_paths = paths.clone();
+                    let mut new_paths = paths.to_owned();
                     let path_str: String = outpath.to_string_lossy().to_string();
                     new_paths.push(&path_str);
 
@@ -225,12 +221,9 @@ fn process_archive<R: Read + Seek>(
                     file.read_to_end(&mut buffer)?;
                     let archive_data = Cursor::new(&buffer);
 
-                    let subresult = process_archive(archive_data, &new_paths, &args);
+                    let subresult = process_archive(archive_data, &new_paths, args);
 
-                    match subresult {
-                        Ok(r) => update_cumulated_result(&mut cumulated_result, &r),
-                        _ => (),
-                    }
+                    if let Ok(r) = subresult { update_cumulated_result(&mut cumulated_result, &r) }
                 }
             }
         }
@@ -270,7 +263,7 @@ fn process_archive<R: Read + Seek>(
 
 /// Processes a file from the filesystem to find vulnerabilities
 fn process_file(path: &Path, args: &Cli) -> Result<ArchiveScanResult, std::io::Error> {
-    if path.file_name().unwrap_or(OsStr::new("")) == JNDI_LOOKUP_CLASS_FILE {
+    if path.file_name().unwrap_or_else(|| OsStr::new("")) == JNDI_LOOKUP_CLASS_FILE {
         // If Jndi class is found outside an archive, consider vulnerable with warn severity
         let mut result = ArchiveScanResult::new();
         result.has_jndi_class = true;
@@ -293,7 +286,7 @@ fn process_file(path: &Path, args: &Cli) -> Result<ArchiveScanResult, std::io::E
 
                 let path_str = &path.to_string_lossy();
                 paths.push(path_str);
-                return process_archive(&file, &paths, &args);
+                return process_archive(&file, &paths, args);
             }
         }
         None => return Ok(ArchiveScanResult::new()),
@@ -308,13 +301,13 @@ fn is_archive(extension: &OsStr, include_zip: bool) -> bool {
         return true;
     }
 
-    for i in 0..ARCHIVE_EXTENSIONS.len() {
-        if extension.eq_ignore_ascii_case(ARCHIVE_EXTENSIONS[i]) {
+    for archive_extension in ARCHIVE_EXTENSIONS {
+        if extension.eq_ignore_ascii_case(archive_extension) {
             return true;
         }
     }
 
-    return false;
+    false
 }
 
 /// Runs the scan
@@ -332,16 +325,14 @@ pub fn scan(args: &Cli) -> Result<u64, std::io::Error> {
         if e.metadata()?.is_file() {
             count_files += 1;
             trace!("Scanning file \"{}\"", e.path().display());
-            match process_file(e.path(), &args) {
+            match process_file(e.path(), args) {
                 Ok(result) => {
                     if result.vulnerable {
                         count_vulnerable += 1;
                     }
-                    ()
                 }
                 Err(error) => {
                     info!("{} can´t be read. Error:{:?}", e.path().display(), error);
-                    ()
                 }
             };
         } else {
