@@ -85,7 +85,7 @@ impl ArchiveScanResult {
 fn find_signature_in_bytes(bytes: &[u8], signature: &str) -> bool {
     let finder = memmem::Finder::new(signature);
 
-    finder.find(bytes) != None
+    finder.find(bytes).is_some()
 }
 
 /// Reads the file on the provided buffer
