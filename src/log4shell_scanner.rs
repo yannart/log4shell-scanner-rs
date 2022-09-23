@@ -223,7 +223,9 @@ fn process_archive<R: Read + Seek>(
 
                     let subresult = process_archive(archive_data, &new_paths, args);
 
-                    if let Ok(r) = subresult { update_cumulated_result(&mut cumulated_result, &r) }
+                    if let Ok(r) = subresult {
+                        update_cumulated_result(&mut cumulated_result, &r)
+                    }
                 }
             }
         }
