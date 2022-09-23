@@ -9,8 +9,6 @@ jobs:
       matrix:
         rust:
           - stable
-          - beta
-          - nightly
           - 1.63.0  # MSRV
 
     steps:
