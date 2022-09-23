@@ -4,7 +4,6 @@ name: Continuous integration
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         os: [ ubuntu-latest, macOS-latest, windows-latest ]
