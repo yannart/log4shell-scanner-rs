@@ -44,4 +44,3 @@ jobs:
       - uses: ncipollo/release-action@v1
         with:
           artifacts: "log4shell-scanner-rs,log4shell-scanner-rs.exe"
-          token: ${{ secrets.YOUR_GITHUB_TOKEN }}
