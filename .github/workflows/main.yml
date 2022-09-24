@@ -42,12 +42,12 @@ jobs:
           command: clippy
           args: -- -D warnings
 
-      - if: matrix.os != "windows-latest"
+      - if: matrix.os != windows-latest
         run: mv target/release/log4shell-scanner-rs target/release/log4shell-scanner-rs-${{ matrix.os }}
-      - if: matrix.os == "windows-latest"
+      - if: matrix.os == windows-latest
         run: mv target/release/log4shell-scanner-rs.exe target/release/log4shell-scanner-rs-${{ matrix.os }}.exe
 
-      - if: matrix.rust == "1.63.0"
+      - if: matrix.rust == 1.63.0
         uses: ncipollo/release-action@v1
         with:
           artifacts: "target/release/log4shell-scanner-rs-${{ matrix.os }},target/release/log4shell-scanner-rs-${{ matrix.os }}.exe"
