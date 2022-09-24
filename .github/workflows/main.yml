@@ -26,6 +26,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: build
+          args: --release
 
       - uses: actions-rs/cargo@v1
         with:
@@ -41,7 +42,11 @@ jobs:
           command: clippy
           args: -- -D warnings
 
+      - run: mv target/release/log4shell-scanner-rs target/release/log4shell-scanner-rs-${{ matrix.os }}
+      - run: mv target/release/log4shell-scanner-rs.exe target/release/log4shell-scanner-rs-${{ matrix.os }}.exe
+
       - uses: ncipollo/release-action@v1
         with:
-          artifacts: "log4shell-scanner-rs,log4shell-scanner-rs.exe"
+          artifacts: "target/release/log4shell-scanner-rs-${{ matrix.os }},target/release/log4shell-scanner-rs-${{ matrix.os }}.exe"
           draft: true
+          allowUpdates: true
