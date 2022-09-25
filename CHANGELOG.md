@@ -6,13 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.2] - 2022-09-22
+## [0.1.2] - 2022-09-24
 ### Added
+- Update dependencies
+- Update Rust to 1.63.0 and clean clippy warnings
 - Github Actions workflows
 
 ### Changed
-- Update dependencies
-- Update Rust to 1.63.0 and clean clippy warnings
 - Switch from Travis to Github Actions for CICD
 
 ### Removed
