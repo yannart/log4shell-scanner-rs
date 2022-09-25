@@ -85,7 +85,7 @@ impl ArchiveScanResult {
 fn find_signature_in_bytes(bytes: &[u8], signature: &str) -> bool {
     let finder = memmem::Finder::new(signature);
 
-    finder.find(bytes) != None
+    finder.find(bytes).is_some()
 }
 
 /// Reads the file on the provided buffer
@@ -198,13 +198,10 @@ fn process_archive<R: Read + Seek>(
                 // Recursively scan if the file is an archive
                 let mut is_archive_file = false;
 
-                match outpath.extension() {
-                    Some(extension) => {
-                        if is_archive(extension, args.scan_zip) {
-                            is_archive_file = true;
-                        }
+                if let Some(extension) = outpath.extension() {
+                    if is_archive(extension, args.scan_zip) {
+                        is_archive_file = true;
                     }
-                    None => (),
                 }
 
                 // Scan recursively and return the
@@ -223,7 +220,9 @@ fn process_archive<R: Read + Seek>(
 
                     let subresult = process_archive(archive_data, &new_paths, args);
 
-                    if let Ok(r) = subresult { update_cumulated_result(&mut cumulated_result, &r) }
+                    if let Ok(r) = subresult {
+                        update_cumulated_result(&mut cumulated_result, &r)
+                    }
                 }
             }
         }
