@@ -1,7 +1,5 @@
 on:
   push:
-    branches:
-      - '*'
     tags:
       - '*'
 
@@ -46,11 +44,11 @@ jobs:
           args: -- -D warnings
 
       - if: matrix.os != 'windows-latest'
-        run: mv target/release/log4shell-scanner-rs target/release/log4shell-scanner-rs-${{ matrix.os }}
+        run: mv target/release/log4shell-scanner-rs target/release/log4shell-scanner-rs-${{ github.ref_name }-${{ matrix.os }}
       - if: matrix.os == 'windows-latest'
-        run: mv target/release/log4shell-scanner-rs.exe target/release/log4shell-scanner-rs-${{ matrix.os }}.exe
+        run: mv target/release/log4shell-scanner-rs.exe target/release/log4shell-scanner-rs-${{ github.ref_name }-${{ matrix.os }}.exe
 
       - uses: ncipollo/release-action@v1
         with:
-          artifacts: "target/release/log4shell-scanner-rs-${{ matrix.os }},target/release/log4shell-scanner-rs-${{ matrix.os }}.exe"
+          artifacts: "target/release/log4shell-scanner-rs-${{ github.ref_name }-${{ matrix.os }},target/release/log4shell-scanner-rs-${{ github.ref_name }-${{ matrix.os }}.exe"
           allowUpdates: true
