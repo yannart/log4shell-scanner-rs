@@ -1,4 +1,9 @@
-on: release
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - '*'
 
 name: Release
 

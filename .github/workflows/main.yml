@@ -1,4 +1,7 @@
-on: push
+on:
+  push:
+    tags-ignore:
+      - '*'
 
 name: Push
 
@@ -41,4 +44,3 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
-
