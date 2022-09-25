@@ -44,9 +44,9 @@ jobs:
           args: -- -D warnings
 
       - if: matrix.os != 'windows-latest'
-        run: mv target/release/log4shell-scanner-rs target/release/log4shell-scanner-rs-${{ github.ref_name }-${{ matrix.os }}
+        run: mv target/release/log4shell-scanner-rs target/release/log4shell-scanner-rs-${{ github.ref_name }}-${{ matrix.os }}
       - if: matrix.os == 'windows-latest'
-        run: mv target/release/log4shell-scanner-rs.exe target/release/log4shell-scanner-rs-${{ github.ref_name }-${{ matrix.os }}.exe
+        run: mv target/release/log4shell-scanner-rs.exe target/release/log4shell-scanner-rs-${{ github.ref_name }}-${{ matrix.os }}.exe
 
       - uses: ncipollo/release-action@v1
         with:
