@@ -1,7 +1,4 @@
-on:
-  push:
-    tags-ignore:
-      - '*'
+on: push
 
 name: Push
 
