@@ -11,11 +11,11 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macOS-latest, windows-latest ]
         rust:
-          - 1.63.0  # MSRV
+          - 1.90.0  # MSRV
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:

@@ -3,10 +3,10 @@
 
 //! Utility to scan files on the FIleSystem and detect potential vulnerabilities to Log4Shell.
 
+use clap::Parser;
 use env_logger::{Builder, Env, Target};
 use std::io::Write;
 use std::time::Instant;
-use clap::Parser;
 
 mod cli;
 mod log4shell_scanner;
@@ -40,13 +40,7 @@ fn init_log(severity_level: &str) {
     builder.format(|buf, record| {
         let timestamp = buf.timestamp();
 
-        writeln!(
-            buf,
-            "{}\t{}\t{}",
-            timestamp,
-            record.level(),
-            record.args()
-        )
+        writeln!(buf, "{}\t{}\t{}", timestamp, record.level(), record.args())
     });
 
     builder.init();
