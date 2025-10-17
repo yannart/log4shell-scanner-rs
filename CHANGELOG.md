@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.3] - 2025-10-17
 ### Changed
-- Updated Rust toolchain and dependencies
+- Update dependencies
+- Update Rust to 1.90.0
 
 ## [0.1.2] - 2022-09-24
 ### Added
