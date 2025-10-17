@@ -1,6 +1,6 @@
 [package]
 name = "log4shell-scanner-rs"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Yann Nicolas"]
 edition = "2021"
 description = "Utility to scan files on the FileSystem and detect potential vulnerabilities to log4shell (CVE-2021-44228)."
