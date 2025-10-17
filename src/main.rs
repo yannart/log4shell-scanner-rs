@@ -6,7 +6,7 @@
 use env_logger::{Builder, Env, Target};
 use std::io::Write;
 use std::time::Instant;
-use structopt::StructOpt;
+use clap::Parser;
 
 mod cli;
 mod log4shell_scanner;
@@ -38,7 +38,6 @@ fn init_log(severity_level: &str) {
     builder.target(Target::Stdout);
 
     builder.format(|buf, record| {
-        let style = buf.style();
         let timestamp = buf.timestamp();
 
         writeln!(
@@ -46,7 +45,7 @@ fn init_log(severity_level: &str) {
             "{}\t{}\t{}",
             timestamp,
             record.level(),
-            style.value(record.args())
+            record.args()
         )
     });
 
@@ -56,7 +55,7 @@ fn init_log(severity_level: &str) {
 /// Entry point of the application
 fn main() {
     let now = Instant::now();
-    let args = cli::Cli::from_args();
+    let args = cli::Cli::parse();
 
     // Initialize log
     init_log(get_log_severity_level(&args));
