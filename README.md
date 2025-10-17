@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.com/yannart/log4shell-scanner-rs.svg?branch=main)](https://travis-ci.com/yannart/log4shell-scanner-rs)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Minimum rustc version](https://img.shields.io/badge/rustc-v1.63.0-lightgray.svg)](https://blog.rust-lang.org/2021/12/02/Rust-1.63.0.html)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-v1.90.0-lightgray.svg)](https://blog.rust-lang.org/2021/12/02/Rust-1.90.0.html)
 
 Log4Shell Scanner (`log4shell-scanner-rs`) is a CLI application written in [Rust](https://www.rust-lang.org/). It scans the file system to find Java applications that may be vulnerable to [Log4Shell](https://en.wikipedia.org/wiki/Log4Shell) related vulnerabilities ([CVE-2021-44228](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228), [CVE-2021-45046](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-45046), [CVE-2021-45105](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-45105), [CVE-2021-44832](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44832)).
 
